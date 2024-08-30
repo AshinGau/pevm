@@ -406,13 +406,6 @@ impl<'a, S: Storage, C: PevmChain> Database for VmDb<'a, S, C> {
             .map_err(|err| ReadError::StorageError(err.to_string()))
     }
 
-    fn has_storage(&mut self, address: Address) -> Result<bool, Self::Error> {
-        self.vm
-            .storage
-            .has_storage(&address)
-            .map_err(|err| ReadError::StorageError(err.to_string()))
-    }
-
     fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
         let location_hash = self
             .vm

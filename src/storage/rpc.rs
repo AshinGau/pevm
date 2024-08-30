@@ -151,11 +151,6 @@ impl<N: Network> Storage for RpcStorage<N> {
         Ok(self.cache_bytecodes.lock().unwrap().get(code_hash).cloned())
     }
 
-    fn has_storage(&self, _address: &Address) -> Result<bool, Self::Error> {
-        // FIXME! Returning [false] should cover EIP-7610 for the time being.
-        Ok(false)
-    }
-
     fn storage(&self, address: &Address, index: &U256) -> Result<U256, Self::Error> {
         if let Some(account) = self.cache_accounts.lock().unwrap().get(address) {
             if let Some(value) = account.storage.get(index) {

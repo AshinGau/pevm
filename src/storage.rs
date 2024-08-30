@@ -8,7 +8,6 @@ use revm::{
     primitives::{Account, AccountInfo, Bytecode, JumpTable, KECCAK_EMPTY},
     DatabaseRef,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{BuildIdentityHasher, BuildSuffixHasher};
 
@@ -16,17 +15,15 @@ use crate::{BuildIdentityHasher, BuildSuffixHasher};
 // on the [Storage] interface here.
 
 /// An EVM account.
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct EvmAccount {
     /// The account's balance.
     pub balance: U256,
     /// The account's nonce.
     pub nonce: u64,
     /// The optional code hash of the account.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub code_hash: Option<B256>,
     /// The account's optional code.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub code: Option<EvmCode>,
     /// The account's storage.
     pub storage: AHashMap<U256, U256>,
@@ -70,7 +67,7 @@ impl Default for AccountBasic {
 
 /// EVM Code, currently mapping to REVM's [ByteCode::LegacyAnalyzed].
 // TODO: Support raw legacy & EOF
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct EvmCode {
     /// Bytecode with 32 zero bytes padding
     bytecode: Bytes,
@@ -97,9 +94,9 @@ impl From<Bytecode> for EvmCode {
         match code {
             Bytecode::LegacyRaw(_) => to_analysed(code).into(),
             Bytecode::LegacyAnalyzed(code) => EvmCode {
-                bytecode: code.bytecode,
-                original_len: code.original_len,
-                jump_table: code.jump_table.0,
+                bytecode: code.bytecode().clone(),
+                original_len: code.original_len(),
+                jump_table: code.jump_table().clone().0,
             },
             Bytecode::Eof(_) => unimplemented!("TODO: Support EOF"),
         }
@@ -131,9 +128,6 @@ pub trait Storage {
 
     /// Get account code by its hash.
     fn code_by_hash(&self, code_hash: &B256) -> Result<Option<EvmCode>, Self::Error>;
-
-    /// Get if the account already has storage (to support EIP-7610).
-    fn has_storage(&self, address: &Address) -> Result<bool, Self::Error>;
 
     /// Get storage value of address at index.
     fn storage(&self, address: &Address, index: &U256) -> Result<U256, Self::Error>;
@@ -177,10 +171,6 @@ where
         })
     }
 
-    fn has_storage(&self, address: &Address) -> Result<bool, Self::Error> {
-        self.has_storage_ref(*address)
-    }
-
     fn storage(&self, address: &Address, index: &U256) -> Result<U256, Self::Error> {
         self.storage_ref(*address, *index)
     }
@@ -221,10 +211,6 @@ impl<'a, S: Storage> DatabaseRef for StorageWrapper<'a, S> {
         self.0
             .code_by_hash(&code_hash)
             .map(|code| code.map(Bytecode::from).unwrap_or_default())
-    }
-
-    fn has_storage_ref(&self, address: Address) -> Result<bool, Self::Error> {
-        self.0.has_storage(&address)
     }
 
     fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
