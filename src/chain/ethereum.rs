@@ -34,6 +34,10 @@ impl PevmEthereum {
         }
     }
 
+    pub fn new(id: u64) -> Self {
+        Self { id }
+    }
+
     // TODO: support Ethereum Sepolia and other testnets
 }
 

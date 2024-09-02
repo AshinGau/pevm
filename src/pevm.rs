@@ -95,19 +95,21 @@ impl Pevm {
             _ => return Err(PevmError::MissingTransactionData),
         };
         // TODO: Continue to fine tune this condition.
-        if force_sequential
-            || tx_envs.len() < concurrency_level.into()
-            || block.header.gas_used < 4_000_000
-        {
+        if force_sequential {
             execute_revm_sequential(storage, chain, spec_id, block_env, tx_envs)
         } else {
+            let final_concurrent = if tx_envs.len() < concurrency_level.into() {
+                NonZeroUsize::new(tx_envs.len()).unwrap()
+            } else {
+                concurrency_level
+            };
             self.execute_revm_parallel(
                 storage,
                 chain,
                 spec_id,
                 block_env,
                 tx_envs,
-                concurrency_level,
+                final_concurrent,
             )
         }
     }
