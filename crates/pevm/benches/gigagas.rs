@@ -40,7 +40,7 @@ pub fn bench(c: &mut Criterion, name: &str, storage: InMemoryStorage, txs: Vec<T
     let spec_id = SpecId::LATEST;
     let block_env = BlockEnv::default();
     let mut pevm = Pevm::default();
-    let mut group = c.benchmark_group(name);
+    let mut group = c.benchmark_group(format!("{}({} Txs)", name, txs.len()));
     group.bench_function("Sequential", |b| {
         b.iter(|| {
             execute_revm_sequential(
@@ -138,15 +138,76 @@ pub fn bench_raw_transfers(c: &mut Criterion) {
 }
 
 /// Benchmarks the execution time of ERC-20 token transfers.
-pub fn bench_erc20(c: &mut Criterion) {
+pub fn bench_worst_erc20(c: &mut Criterion) {
     let block_size = (GIGA_GAS as f64 / erc20::ESTIMATED_GAS_USED as f64).ceil() as usize;
-    let (mut state, bytecodes, txs) = erc20::generate_cluster(block_size, 1, 1);
+    let (mut state, bytecodes, txs) = erc20::generate_cluster_tool(block_size, 1, 1, true);
     state.insert(Address::ZERO, EvmAccount::default()); // Beneficiary
     bench(
         c,
-        "Independent ERC20",
+        "Worst ERC20",
         InMemoryStorage::new(state, Arc::new(bytecodes), Default::default()),
         txs,
+    );
+}
+
+pub fn bench_half_chained_erc20(c: &mut Criterion) {
+    let block_size = (GIGA_GAS as f64 / erc20::ESTIMATED_GAS_USED as f64).ceil() as usize;
+    let mut final_state = ChainState::from_iter([(Address::ZERO, EvmAccount::default())]); // Beneficiary
+    let mut final_bytecodes = Bytecodes::default();
+    let mut final_txs = Vec::<TxEnv>::new();
+    let (state, bytecodes, txs) = erc20::generate_cluster_tool(block_size / 2, 1, 1, true);
+    final_state.extend(state);
+    final_bytecodes.extend(bytecodes);
+    final_txs.extend(txs);
+    let (state, bytecodes, txs) = erc20::generate_cluster_tool(block_size / 2, 1, 1, false);
+    final_state.extend(state);
+    final_bytecodes.extend(bytecodes);
+    final_txs.extend(txs);
+    bench(
+        c,
+        "Half Chained ERC20",
+        InMemoryStorage::new(final_state, Arc::new(final_bytecodes), Default::default()),
+        final_txs,
+    );
+}
+
+pub fn bench_worst_uniswap(c: &mut Criterion) {
+    let block_size = (GIGA_GAS as f64 / uniswap::ESTIMATED_GAS_USED as f64).ceil() as usize;
+    let mut final_state = ChainState::from_iter([(Address::ZERO, EvmAccount::default())]); // Beneficiary
+    let mut final_bytecodes = Bytecodes::default();
+    let mut final_txs = Vec::<TxEnv>::new();
+    let (state, bytecodes, txs) = uniswap::generate_cluster(block_size, 1);
+    final_state.extend(state);
+    final_bytecodes.extend(bytecodes);
+    final_txs.extend(txs);
+    bench(
+        c,
+        "Worst Uniswap",
+        InMemoryStorage::new(final_state, Arc::new(final_bytecodes), Default::default()),
+        final_txs,
+    );
+}
+
+pub fn bench_half_chained_uniswap(c: &mut Criterion) {
+    let block_size = (GIGA_GAS as f64 / uniswap::ESTIMATED_GAS_USED as f64).ceil() as usize;
+    let mut final_state = ChainState::from_iter([(Address::ZERO, EvmAccount::default())]); // Beneficiary
+    let mut final_bytecodes = Bytecodes::default();
+    let mut final_txs = Vec::<TxEnv>::new();
+    let (state, bytecodes, txs) = uniswap::generate_cluster(block_size / 2, 1);
+    final_state.extend(state);
+    final_bytecodes.extend(bytecodes);
+    final_txs.extend(txs);
+    for _ in 0..block_size / 2 {
+        let (state, bytecodes, txs) = uniswap::generate_cluster(1, 1);
+        final_state.extend(state);
+        final_bytecodes.extend(bytecodes);
+        final_txs.extend(txs);
+    }
+    bench(
+        c,
+        "Half Chained Uniswap",
+        InMemoryStorage::new(final_state, Arc::new(final_bytecodes), Default::default()),
+        final_txs,
     );
 }
 
@@ -174,7 +235,10 @@ pub fn bench_uniswap(c: &mut Criterion) {
 pub fn benchmark_gigagas(c: &mut Criterion) {
     // bench_worst_case(c);
     // bench_raw_transfers(c);
-    bench_erc20(c);
+    bench_worst_erc20(c);
+    bench_half_chained_erc20(c);
+    bench_worst_uniswap(c);
+    bench_half_chained_uniswap(c);
     // bench_uniswap(c);
 }
 

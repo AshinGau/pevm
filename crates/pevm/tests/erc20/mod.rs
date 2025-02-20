@@ -22,11 +22,20 @@ fn generate_addresses(length: usize) -> Vec<Address> {
     (0..length).map(|_| Address::new(rand::random())).collect()
 }
 
-/// Generates a cluster of blockchain transactions for testing or simulation purposes.
 pub fn generate_cluster(
     num_families: usize,
     num_people_per_family: usize,
     num_transfers_per_person: usize,
+) -> (ChainState, Bytecodes, Vec<TxEnv>) {
+    generate_cluster_tool(num_families, num_people_per_family, num_transfers_per_person, false)
+}
+
+/// Generates a cluster of blockchain transactions for testing or simulation purposes.
+pub fn generate_cluster_tool(
+    num_families: usize,
+    num_people_per_family: usize,
+    num_transfers_per_person: usize,
+    chained: bool,
 ) -> (ChainState, Bytecodes, Vec<TxEnv>) {
     let families: Vec<Vec<Address>> = (0..num_families)
         .map(|_| generate_addresses(num_people_per_family))
@@ -57,7 +66,11 @@ pub fn generate_cluster(
     for nonce in 0..num_transfers_per_person {
         for family in &families {
             for person in family {
-                let recipient = prev_sender;
+                let recipient = if chained {
+                    prev_sender
+                } else {
+                    family[(rand::random::<usize>()) % (family.len())]
+                };
                 let calldata = ERC20Token::transfer(recipient, U256::from(rand::random::<u8>()));
 
                 txs.push(TxEnv {
