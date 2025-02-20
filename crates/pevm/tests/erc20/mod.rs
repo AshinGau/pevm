@@ -3,6 +3,7 @@
 /// This module provides ERC-20 contract functionality.
 pub mod contract;
 
+use alloy_primitives::U160;
 use contract::ERC20Token;
 use pevm::{Bytecodes, ChainState, EvmAccount};
 use revm::primitives::{uint, Address, TransactTo, TxEnv, U256};
@@ -52,16 +53,11 @@ pub fn generate_cluster(
         );
     }
 
-    let mut index = 0;
+    let mut prev_sender = Address::from(U160::from(1000));
     for nonce in 0..num_transfers_per_person {
         for family in &families {
-            index += 1;
             for person in family {
-                let recipient = if index < num_families {
-                    families[index][0]
-                } else {
-                    family[(rand::random::<usize>()) % (family.len())]
-                };
+                let recipient = prev_sender;
                 let calldata = ERC20Token::transfer(recipient, U256::from(rand::random::<u8>()));
 
                 txs.push(TxEnv {
@@ -72,7 +68,8 @@ pub fn generate_cluster(
                     data: calldata,
                     nonce: Some(nonce as u64),
                     ..TxEnv::default()
-                })
+                });
+                prev_sender = *person;
             }
         }
     }
