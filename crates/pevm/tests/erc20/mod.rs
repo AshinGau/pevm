@@ -52,10 +52,16 @@ pub fn generate_cluster(
         );
     }
 
+    let mut index = 0;
     for nonce in 0..num_transfers_per_person {
         for family in &families {
+            index += 1;
             for person in family {
-                let recipient = family[(rand::random::<usize>()) % (family.len())];
+                let recipient = if index < num_families {
+                    families[index][0]
+                } else {
+                    family[(rand::random::<usize>()) % (family.len())]
+                };
                 let calldata = ERC20Token::transfer(recipient, U256::from(rand::random::<u8>()));
 
                 txs.push(TxEnv {

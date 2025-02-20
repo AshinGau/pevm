@@ -6,6 +6,7 @@ use pevm::{
 };
 use revm::primitives::{alloy_primitives::U160, Address, BlockEnv, SpecId, TxEnv, U256};
 use std::{num::NonZeroUsize, thread};
+use std::time::Instant;
 
 /// Mock an account from an integer index that is used as the address.
 /// Useful for mock iterations.
@@ -29,23 +30,26 @@ where
     S: Storage + Send + Sync,
 {
     let concurrency_level = thread::available_parallelism().unwrap_or(NonZeroUsize::MIN);
-    assert_eq!(
-        pevm::execute_revm_sequential(
-            chain,
-            &storage,
-            SpecId::LATEST,
-            BlockEnv::default(),
-            txs.clone(),
-        ),
-        Pevm::default().execute_revm_parallel(
-            chain,
-            &storage,
-            SpecId::LATEST,
-            BlockEnv::default(),
-            txs,
-            concurrency_level,
-        ),
+    let start = Instant::now();
+    let sequential = pevm::execute_revm_sequential(
+        chain,
+        &storage,
+        SpecId::LATEST,
+        BlockEnv::default(),
+        txs.clone(),
     );
+    println!("Execute sequential: {}ms", start.elapsed().as_millis());
+    let start = Instant::now();
+    let parallel = Pevm::default().execute_revm_parallel(
+        chain,
+        &storage,
+        SpecId::LATEST,
+        BlockEnv::default(),
+        txs,
+        concurrency_level,
+    );
+    println!("Execute parallel: {}ms", start.elapsed().as_millis());
+    assert_eq!(sequential, parallel);
 }
 
 /// Execute an Alloy block sequentially & with pevm and assert that

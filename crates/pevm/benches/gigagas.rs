@@ -67,6 +67,42 @@ pub fn bench(c: &mut Criterion, name: &str, storage: InMemoryStorage, txs: Vec<T
     group.finish();
 }
 
+/// Benchmarks the execution time of worst raw transfers.
+pub fn bench_worst_case(c: &mut Criterion) {
+    let block_size = (GIGA_GAS as f64 / common::RAW_TRANSFER_GAS_LIMIT as f64).ceil() as usize;
+    // Skip the built-in precompiled contracts addresses.
+    const START_ADDRESS: usize = 1000;
+    const MINER_ADDRESS: usize = 0;
+    let storage = InMemoryStorage::new(
+        std::iter::once(MINER_ADDRESS)
+            .chain(START_ADDRESS..START_ADDRESS + block_size)
+            .map(common::mock_account)
+            .collect(),
+        Default::default(),
+        Default::default(),
+    );
+    bench(
+        c,
+        "Worst Raw Transfers",
+        storage,
+        (0..block_size)
+            .map(|i| {
+                // tx(i) => tx(i+1), all transactions should execute sequentially.
+                let from = Address::from(U160::from(START_ADDRESS + i));
+                let to = Address::from(U160::from(START_ADDRESS + i + 1));
+                TxEnv {
+                    caller: from,
+                    transact_to: TransactTo::Call(to),
+                    value: U256::from(1),
+                    gas_limit: common::RAW_TRANSFER_GAS_LIMIT,
+                    gas_price: U256::from(1),
+                    ..TxEnv::default()
+                }
+            })
+            .collect::<Vec<_>>(),
+    );
+}
+
 /// Benchmarks the execution time of raw token transfers.
 pub fn bench_raw_transfers(c: &mut Criterion) {
     let block_size = (GIGA_GAS as f64 / common::RAW_TRANSFER_GAS_LIMIT as f64).ceil() as usize;
@@ -136,9 +172,10 @@ pub fn bench_uniswap(c: &mut Criterion) {
 
 /// Runs a series of benchmarks to evaluate the performance of different transaction types.
 pub fn benchmark_gigagas(c: &mut Criterion) {
-    bench_raw_transfers(c);
+    // bench_worst_case(c);
+    // bench_raw_transfers(c);
     bench_erc20(c);
-    bench_uniswap(c);
+    // bench_uniswap(c);
 }
 
 // HACK: we can't document public items inside of the macro

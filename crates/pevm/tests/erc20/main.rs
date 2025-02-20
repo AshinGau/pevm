@@ -28,6 +28,18 @@ fn erc20_independent() {
 }
 
 #[test]
+fn erc20_worst_case() {
+    const N: usize = 37123;
+    let (mut state, bytecodes, txs) = generate_cluster(N, 1, 1);
+    state.insert(Address::ZERO, EvmAccount::default()); // Beneficiary
+    test_execute_revm(
+        &PevmEthereum::mainnet(),
+        InMemoryStorage::new(state, Arc::new(bytecodes), Default::default()),
+        txs,
+    );
+}
+
+#[test]
 fn erc20_clusters() {
     const NUM_CLUSTERS: usize = 10;
     const NUM_FAMILIES_PER_CLUSTER: usize = 15;
